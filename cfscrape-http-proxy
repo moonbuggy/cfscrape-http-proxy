@@ -1,0 +1,275 @@
+#!/usr/bin/env python
+
+import sys, os, signal
+from os import path
+
+## list possible configuration file locations in the order they should be tried, use first match
+CONFIG_FILE = 'cfscrape-http-proxy.conf'
+CONFIG_PATHS = ['/opt/etc/',
+                '/etc/',
+                '/usr/local/etc/',
+                os.curdir]
+
+## define some module names as None so we only lazy import them once later on
+socket = None
+validators = None
+cfscrape = None
+
+## this script should work in python 2 and 3 so we have to allow for module names differing between python versions
+if (sys.version_info > (3, 0)):
+    pyver = 3
+    from http.server import CGIHTTPRequestHandler
+    from socketserver import ThreadingMixIn
+    from http.server import HTTPServer
+    import configparser
+
+else:
+    pyver = 2
+    from CGIHTTPServer import CGIHTTPRequestHandler
+    from SocketServer import ThreadingMixIn
+    from BaseHTTPServer import HTTPServer
+    import ConfigParser as configparser
+
+from daemons.prefab import run
+
+## prctl needs certain packages to be installed in the operating system and is therefore an optional module
+## as a result we should expect an error in cases where it's not installed, which we need to catch
+try:
+    import prctl
+except ImportError:
+    pass
+else:
+    prctl.set_proctitle('cfscrape-http-proxy ' + ' '.join(sys.argv[1:]))
+
+## handle SIGINT cleanly
+def signal_handler(signal, frame):
+    print('\nSignal interrupt. Exiting.')
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+
+def get_interface_ip(ifname, default_ifname):
+    try:
+        ip = interface_to_ip(ifname)
+    except IOError:
+        print('Error: interface \'%s\' does not exist. Using the default (%s).' % (ifname, default_ifname))
+        ip = interface_to_ip(default_ifname)
+
+    return ip
+
+
+def interface_to_ip(ifname):
+    if ifname.lower() in ['any', '0']:
+        return '0'
+
+    global socket, fcntl, struct
+    if socket is None:
+        import socket, fcntl, struct
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # this will throw an IOError at the calling function if the interface doesn't exist, which we'll need to catch
+    if pyver == 2:
+        ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s', ifname[:15]))[20:24])
+    elif pyver == 3:
+        ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s', bytes(ifname[:15], 'utf-8')))[20:24])
+
+    return ip
+
+
+class ProxyRequestHandler(CGIHTTPRequestHandler):
+    sessionBaseURL = None
+
+    def get_url(self, url):
+        global cfscrape, SourceAddressAdapter
+        if cfscrape is None:
+            import cfscrape
+            from requests_toolbelt.adapters.source import SourceAddressAdapter
+
+        s = cfscrape.create_scraper()
+        if args.exit_ip:
+            s.mount('http://', SourceAddressAdapter(args.exit_ip))
+            s.mount('https://', SourceAddressAdapter(args.exit_ip))
+
+        try:
+            gotten = s.get(url)
+            if 'text' in gotten.headers['Content-Type']:
+                output = gotten.text
+            else:
+                output = gotten.content
+        except cfscrape.CloudflareCaptchaError:
+            output = 'There was an error processing this Captcha, maybe due to outdated OpenSSL.'
+            print (output)
+
+        return output
+
+    ## the URL handling in this definition should be cleaned up, it was hacked together without much planning
+    def do_GET(self):
+        global validators, urlparse, parse_qs, quote, args
+
+        if validators is None:
+            import validators
+            from requests.utils import quote
+            if pyver == 2:
+                from urlparse import urlparse, parse_qs
+            elif pyver == 3:
+                from urllib.parse import urlparse, parse_qs
+
+        parsed_query = parse_qs((urlparse(self.path)).query)
+
+        if 'url' in parsed_query:
+            url = parsed_query['url'][0].replace("%3A//", "://")
+            if not 'http' in url:
+                url = 'http://' + url
+            if validators.url(url):
+                currentURL = urlparse(url)
+                domain = currentURL.netloc.strip()
+                try:
+                    socket.gethostbyname(domain)
+                except socket.gaierror:
+                    output = 'Domain %s does not exist.' % domain
+                    if args.debug:
+                        print (output)
+                    do_fetch = 0
+                else:
+                    ProxyRequestHandler.sessionBaseURL = currentURL.scheme + '://' + currentURL.netloc
+                    if args.debug:
+                        print ('Setting base URL: %s' % self.sessionBaseURL)
+                    do_fetch = 1
+
+            else:
+                output = 'Provided URL is invalid.'
+                if args.debug:
+                    print (output)
+                do_fetch = 0
+        else:
+            url = self.sessionBaseURL + self.path
+            if args.debug:
+                print ('No URL provided, using session base URL: %s' % ProxyRequestHandler.sessionBaseURL)
+            do_fetch = 1
+
+        if do_fetch:
+            if args.debug:
+                print('Fetching: %s' % url)
+            self.send_response(200)
+            self.end_headers()
+            output = self.get_url(url)
+        else:
+            if args.debug:
+                print ('Aborting fetch.')
+            self.send_response(400)
+            self.end_headers()
+
+        if(type(output) is bytes):
+            self.wfile.write(output)
+        else:
+            self.wfile.write(output.encode('utf-8'))
+
+        return
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    pass
+
+
+class ProxyDaemon(run.RunDaemon):
+    def run(self):
+        worker()
+
+
+def worker():
+    global args
+
+    handler = ProxyRequestHandler
+    server = ThreadedHTTPServer((args.listen_ip, args.listen_port), handler)
+    server.serve_forever()
+
+
+if __name__ == '__main__':
+    import subprocess, argparse
+
+    ## use the shell to get the default interface from the 'route' command
+    default_interface = subprocess.Popen("route | grep '^default' | grep -o '[^ ]*$' | tr -d '\n'", shell=True, universal_newlines=True, stdout=subprocess.PIPE).stdout.read()
+
+    ## setup default configuration, which can be overwritten by values in a config file
+    defaults = {
+        'listen_if':'any',
+        'listen_port':8080,
+        'exit_if':default_interface,
+        'pidfile':'/tmp/cfscrape-http-proxy.pid',
+        'config_file':'cfscrape-proxy.conf'
+    }
+
+    config_parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter, add_help=False)
+    config_parser.add_argument('-c', '--config_file', action='store', help='external configuration file', metavar='FILE')
+    config_parser.add_argument('--debug', action='store_true', help='turn on debug messaging')
+
+    args, remaining_argv = config_parser.parse_known_args()
+
+    ## find external configuration
+    if args.config_file is None:
+        for config_file in (path.join(config_path, CONFIG_FILE) for config_path in CONFIG_PATHS):
+            if path.isfile(config_file):
+                if args.debug:
+                    print('Found config file: %s' % config_file)
+                args.config_file = config_file
+                break
+
+    ## read external configuration if we've found it
+    if args.config_file is not None and path.isfile(args.config_file):
+        config = configparser.ConfigParser()
+        config.read(args.config_file)
+        defaults.update(dict(config.items("Defaults")))
+
+        # config.read() makes everything a string but we need to set some variables as integers or booleans
+        # there's probably a cleaner way to do this, but this works for now
+        if config.has_option('Defaults', 'debug'):
+            defaults['debug'] = config.getboolean('Defaults', 'debug')
+        if config.has_option('Defaults', 'daemonize'):
+            defaults['daemonize'] = config.getboolean('Defaults', 'daemonize')
+        if config.has_option('Defaults', 'listen_port'):
+            defaults['listen_port'] = config.getint('Defaults', 'listen_port')
+        if args.debug:
+            print('read config file:\n%s' % defaults)
+    else:
+        print('Error: config file (%s) does not exist, using defaults' % args.config_file)
+
+    ## parse command line arguments, overwriting both default configuration and anything found in a config file
+    parser = argparse.ArgumentParser(description='CloudFlare Anti-Bot HTTP Proxy', parents=[config_parser])
+    parser.set_defaults(**defaults)
+    parser.add_argument('-l', '--listen_if', action='store', help='interface to listen to (use \'any\' or \'0\' to listen to all interfaces) (default %(default)s)', metavar='INTERFACE')
+    parser.add_argument('-p', '--listen_port', action='store', help='port to listen on (default %(default)s)', type=int, metavar='PORT')
+    parser.add_argument('-e', '--exit_if', action='store', help='interface for outgoing connections (default %(default)s)', metavar='INTERFACE')
+    parser.add_argument('-D', '--daemonize', action='store_true', help='run the proxy as a daemon')
+    parser.add_argument('-P', '--pidfile', action='store', help='PID file for daemon (default %(default)s)', metavar='FILE')
+    args = parser.parse_args()
+
+    if args.debug:
+        print('parsed command line:\n%s' % vars(args))
+
+    args.listen_ip = get_interface_ip(args.listen_if, defaults['listen_if'])
+
+    if args.exit_if.lower() in ['any', '0']:
+        args.exit_ip = interface_to_ip(default_interface)
+    else:
+        args.exit_ip = get_interface_ip(args.exit_if, defaults['exit_if'])
+
+    if args.debug:
+        print('startup configuration:\n%s' % vars(args))
+
+    ## start the proxy
+    if args.daemonize:
+        try:
+            with open(args.pidfile, 'w') as f:
+                pass
+        except IOError:
+            print('Error: cannot write pidfile (%s), using default.' % args.pidfile)
+            args.pidfile = defaults['pidfile']
+
+        print('Starting Cloudflare scrape proxy as daemon..')
+        daemon = ProxyDaemon(pidfile=args.pidfile)
+        daemon.start()
+    else:
+        print('Starting Cloudflare scrape proxy..')
+        worker()

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+ENABLED=yes
+PROCS=cfscrape-http-proxy
+DESC="CloudFlare Anti-Bot HTTP Proxy"
+PIDFILE=/tmp/$PROCS.pid
+
+LISTEN_IF=br0
+LISTEN_PORT=8080
+EXIT_IF=eth0
+
+ARGS="-D -l $LISTEN_IF -p $LISTEN_PORT -e $EXIT_IF -P $PIDFILE"
+
+PREARGS=""
+DESC=$PROCS
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+. /opt/etc/init.d/rc.func
+

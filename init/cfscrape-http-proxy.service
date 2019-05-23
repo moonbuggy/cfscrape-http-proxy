@@ -1,0 +1,12 @@
+[Unit]
+Description=Cloudflare scrape HTTP proxy
+After=multi-user.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cfscrape-proxy
+
+[Install]
+WantedBy=multi-user.target
+

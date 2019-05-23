@@ -1,0 +1,12 @@
+# python-prctl is used to change the process name to the name of the script, which will
+# otherwise show up as "python" or "python3" in ps, netstat and similar programs.
+#
+# It requires gcc, libc development headers and libcap development headers to be installed.
+#
+# e.g. sudo apt-get install build-essential libcap-dev
+#      sudo yum install gcc glibc-devel libcap-devel
+#
+# The proxy works just fine without python-prctl, this just makes it easier to see what
+# the proxy is doing with normal system tools.
+# 
+python-prctl
