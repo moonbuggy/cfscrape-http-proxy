@@ -18,7 +18,6 @@ for config_path in CONFIG_PATHS:
         break;
 
 print('config_path: %s' % config_path)
-#print('data_files: %s' % dict(data_files))
 
 ## determine service manager in use
 if path.isfile('/opt/etc/entware_release'):
@@ -44,7 +43,7 @@ else:
 print('data_files: %s' % dict(data_files))
 
 setup(name='cfscrape_http_proxy',
-      version='0.1',
+      version='0.2',
       description='An HTTP proxy that bypasses basic Cloudflare anti-bot pages',
       url='http://github.com/moonbuggy/cfsrape-http-proxy',
       author='moonbuggy',

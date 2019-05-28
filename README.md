@@ -25,10 +25,14 @@ opkg install python-requests
 opkg install node_legacy
 ```
 
-In Windows you'll probably have to do the installation manually, rather than using `setup.py`, because the setup script probably won't know appropriate paths for the main script or the configuration files. In this case copy `cfscrape-http-proxy` wherever, use `pip` to install requirements:
-```
-pip install -r requirements.txt
-```
+### Compatibility
+The proxy should run on most linux distros and has been tested on:
+
+- Ubuntu Bionic
+- Armbian (Debian) Stretch
+- ASUSWRT-Merlin / Entware
+
+The proxy won't run on Windows due to differences in handling network interfaces and sockets.
 
 ## Usage
 ```
@@ -43,14 +47,14 @@ optional arguments:
                         external configuration file
   --debug               turn on debug messaging
   -l INTERFACE, --listen_if INTERFACE
-                        interface to listen to (use 'any' or '0' to listen to all interfaces) (default <default>)
+                        interface to listen to (use 'any' or '0' to listen to all interfaces) (default 'any')
   -p PORT, --listen_port PORT
                         port to listen on (default 8080)
   -e INTERFACE, --exit_if INTERFACE
                         interface for outgoing connections (default <default>)
   -D, --daemonize       run the proxy as a daemon
   -P FILE, --pidfile FILE
-                        PID file for daemon (default /tmp/cfscrape-http-proxy.pid)
+                        PID file for daemon (default '/tmp/cfscrape-http-proxy.pid')
 ```
 Command line parameters override default settings and any settings from a configuration file. An external configuration file specified on the command line will override a configuration file installed in the system config path (typically `/etc/`, or possibly `/opt/etc/` by default).
 
