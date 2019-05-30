@@ -43,7 +43,7 @@ else:
 print('data_files: %s' % dict(data_files))
 
 setup(name='cfscrape_http_proxy',
-      version='0.2',
+      version='0.3',
       description='An HTTP proxy that bypasses basic Cloudflare anti-bot pages',
       url='http://github.com/moonbuggy/cfsrape-http-proxy',
       author='moonbuggy',
@@ -56,6 +56,7 @@ setup(name='cfscrape_http_proxy',
         'requests-toolbelt',
         'setuptools',
         'validators',
+        'future',
       ],
       extras_require={
         'prctl': ["python-prctl"],

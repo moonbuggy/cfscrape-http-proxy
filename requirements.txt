@@ -1,9 +1,8 @@
 cfscrape
 daemons
-lockfile
+future
 nodejs
 requests
 requests-toolbelt
-setuptools
 validators
 
