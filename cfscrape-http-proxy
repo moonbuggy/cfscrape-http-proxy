@@ -128,6 +128,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         return output
 
+
     def validate_request_path(self, path_string):
         '''Check the request path string contains valid information
            and if so return a URL to fetch.'''
@@ -166,30 +167,40 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             if args.debug:
                 print('No domain in request, using session base URL: %s' \
                    % ProxyRequestHandler.sessionBaseURL)
+            if args.no_redirect is not True:
+                return (301, url)
         else:
             return ('Invalid request: %s' % path_string, None)
 
         return (None, url)
 
+
     def do_GET(self):
         '''Parse incomming requests, respond with data from do_fetch().'''
 
-        error, url = self.validate_request_path(self.path)
+        status, url = self.validate_request_path(self.path)
 
-        if error is None:
+        if status is None:
             if args.debug:
                 print('Fetching: %s' % url)
             self.send_response(200)
             output = self.get_url(url)
+        elif status == 301:
+            if args.debug:
+                print('Redirecting to: %s' % url)
+            self.send_response(301)
+            self.send_header('Location', '/?url=' + url)
+            output = None
         else:
             if args.debug:
-                print(error)
+                print(status)
                 print('Aborting fetch.')
             self.send_response(400)
-            output = error.encode('utf-8')
+            output = status.encode('utf-8')
 
         self.end_headers()
-        self.wfile.write(output)
+        if output is not None:
+            self.wfile.write(output)
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -227,7 +238,8 @@ if __name__ == '__main__':
         'listen_port':8080,
         'exit_if':default_interface,
         'pidfile':'/tmp/cfscrape-http-proxy.pid',
-        'config_file':'cfscrape-proxy.conf'
+        'config_file':'cfscrape-proxy.conf',
+        'no_redirect':False
     }
 
     config_parser = argparse.ArgumentParser(
@@ -266,6 +278,8 @@ if __name__ == '__main__':
             defaults['daemonize'] = config.getboolean('Defaults', 'daemonize')
         if config.has_option('Defaults', 'listen_port'):
             defaults['listen_port'] = config.getint('Defaults', 'listen_port')
+        if config.has_option('Defaults', 'no_redirect'):
+            defaults['no_redirect'] = config.getboolean('Defaults', 'no_redirect')
         if args.debug:
             print('read config file:\n%s' % defaults)
     else:
@@ -293,6 +307,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-P', '--pidfile', action='store', metavar='FILE',
         help='PID file for daemon (default \'%(default)s\')')
+    parser.add_argument(
+        '-R', '--no_redirect', action='store_true',
+        help='turn off redirects, prevent adding missing elements to URLs ' \
+        + 'in the browser')
     args = parser.parse_args()
 
     if args.debug:

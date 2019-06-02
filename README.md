@@ -8,7 +8,7 @@ Clone this repo, cd into the repo folder and then use `setup.py` to install:
 sudo python setup.py install
 ```
 
-Optionally, install [python-prctl][python-prctl]. This will alow the proxy to change its process name as displayed in ps, netstat and other such software to make it easier to see what the proxy is doing.
+Optionally, install [python-prctl][python-prctl]. This will alow the proxy to change its process name as displayed in ps, netstat and other such software to make it easier to see what the proxy is doing:
 
 ```
 sudo pip install python-prctl
@@ -55,6 +55,8 @@ optional arguments:
   -D, --daemonize       run the proxy as a daemon
   -P FILE, --pidfile FILE
                         PID file for daemon (default '/tmp/cfscrape-http-proxy.pid')
+  -R, --no_redirect     turn off redirects, prevent adding missing elements to URLs in the browser
+
 ```
 Command line parameters override default settings and any settings from a configuration file. An external configuration file specified on the command line will override a configuration file installed in the system config path (typically `/etc/`, or possibly `/opt/etc/` by default).
 
@@ -75,15 +77,16 @@ port=8080
 exit_if=eth0
 daemoinze=True
 pidfile=/tmp/cfscrape-http-proxy.pid
+no_redirect=False
 ```
 
 The proxy will search several paths for a configuration file if none is specified on the command line. If you're running Entware it should be at `/opt/etc/cfscrape-http-proxy.conf`, otherwise it should probably be at `/etc/cfscrape-http-proxy.conf`.
 
-The default listen and exit interfaces (shown as `<default>` in the usage above), used if nothing is specified in the config file or on the command line, will vary from one system to another. The proxy determines the default by looking at the routing table.
+The default exit interface (shown as `<default>` in the usage above), used if nothing is specified in the config file or on the command line, will vary from one system to another. The proxy determines the default by looking at the routing table.
+
+The `no_redirect` flag will make the proxy faster by not sending HTTP 301 responses to add `?url=http://<domain>/` to the beginning of requests that don't include it (i.e. relative URLs in links on a web page), but it may make browsing web pages through the proxy buggier. It's a trade between speed and robustness, you can experiment to see which you prefer.
 
 ## Notes
-I only use this proxy for scraping RSS feeds. Expect issues if you use this to load HTML web pages - they will load, but I'm not implementing sessions in a sensible way. This causes, in particular, problems with content loaded from (sub)domains other than the one requested in the GET variable. The proxy will, however, handle content (images, CSS, etc..) loaded from the domain in the GET variable (with both absolute and relative paths). 
-
 Installing with pip (`sudo pip install .`) ends up putting the config and init files inside Python's `site-packages` path rather than the root path. This is apparently because it's installing from a bdist, but also because I don't really know how to work setuptools properly. :)
 
 [cloudflare-scrape]: https://github.com/Anorov/cloudflare-scrape
