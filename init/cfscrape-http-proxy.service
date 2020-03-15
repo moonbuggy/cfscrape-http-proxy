@@ -5,8 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/cfscrape-proxy
+ExecStart=/usr/local/bin/cfscrape-http-proxy
 
 [Install]
 WantedBy=multi-user.target
-

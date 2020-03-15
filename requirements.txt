@@ -1,8 +1,8 @@
-cfscrape
-daemons
+cloudscraper
 future
+netifaces
 nodejs
+python-daemon
 requests
 requests-toolbelt
 validators
-

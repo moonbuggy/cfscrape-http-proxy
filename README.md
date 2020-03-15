@@ -1,5 +1,5 @@
 # Cloudflare Anti-Bot HTTP Proxy
-A basic HTTP proxy in Python, implementing [Anorov's cloudflare-scrape][cloudflare-scrape] module.
+A basic HTTP proxy in Python, implementing [VeNoMouS' cloudscraper][cloudscraper] module.
 
 ## Installation
 Clone this repo, cd into the repo folder and then use `setup.py` to install:
@@ -89,6 +89,6 @@ The `no_redirect` flag will make the proxy faster by not sending HTTP 301 respon
 ## Notes
 Installing with pip (`sudo pip install .`) ends up putting the config and init files inside Python's `site-packages` path rather than the root path. This is apparently because it's installing from a bdist, but also because I don't really know how to work setuptools properly. :)
 
-[cloudflare-scrape]: https://github.com/Anorov/cloudflare-scrape
+[cloudscraper]: https://github.com/VeNoMouS/cloudscraper
 [python-prctl]: https://github.com/seveas/python-prctl
 [python-prctl-docs]: https://pythonhosted.org/python-prctl/

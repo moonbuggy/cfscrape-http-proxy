@@ -1,3 +1,4 @@
 build
 cfscrape_http_proxy.egg-info
 dist
+lint.sh
