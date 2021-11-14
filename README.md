@@ -16,9 +16,6 @@ sudo pip install python-prctl
 
 **Note:** python-prctl requires gcc, libc development headers and libcap development headers to be installed in the operating system. See the [python-prctl docs][python-prctl-docs] for details.
 
-The proxy will work with Python 2 or 3, you may have to use `python3` or `pip3` if you have both installed and want to run the proxy with 
-Python 3.
-
 If you're installing this on a router and are using Entware you may need to install some Python modules with `opkg`, for example:
 ```
 opkg install python-requests
@@ -28,9 +25,9 @@ opkg install node_legacy
 ### Compatibility
 The proxy should run on most linux distros and has been tested on:
 
-- Ubuntu Bionic
-- Armbian (Debian) Stretch
-- ASUSWRT-Merlin / Entware
+-   Ubuntu Bionic
+-   Armbian (Debian) Stretch
+-   ASUSWRT-Merlin / Entware
 
 The proxy won't run on Windows due to differences in handling network interfaces and sockets.
 

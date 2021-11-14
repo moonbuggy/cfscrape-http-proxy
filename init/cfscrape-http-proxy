@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2034
 
 ### BEGIN INIT INFO
 # Provides:          cfscrape-http-proxy
@@ -32,7 +33,7 @@ ansi_rev="\033[7m";
 ansi_ul="\033[4m";
 
 start() {
-    echo -n "$ansi_white Starting $DESC.."
+    printf "$ansi_white Starting $DESC.."
     if [ -f "$PIDFILE" ]; then
       echo "            $ansi_yellow already running. $ansi_std"
       return 0
@@ -40,7 +41,7 @@ start() {
     $PROC $ARGS > /dev/null 2>&1
     COUNTER=0
     LIMIT=10
-    while [ ! -f "$PIDFILE" -a "$COUNTER" -le "$LIMIT" ]; do
+    while [ ! -f "$PIDFILE" ] && [ "$COUNTER" -le "$LIMIT" ]; do
       sleep 1;
       COUNTER=`expr $COUNTER + 1`
     done
@@ -57,20 +58,20 @@ start() {
 }
 
 stop() {
-    echo -n "$ansi_white Shutting down $DESC.."
+    printf "$ansi_white Shutting down $DESC.."
 #    $PROC --stop > /dev/null 2>&1 &
-    if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    if [ ! -f "$PIDFILE" ] || ! kill -0 "$(cat "$PIDFILE")"; then
       echo "            $ansi_yellow not running. $ansi_std"
       return 255
     fi
 
-    kill -15 $(cat "$PIDFILE") && rm -f "$PIDFILE"
+    kill -15 "$(cat "$PIDFILE")" && rm -f "$PIDFILE"
     echo "            $ansi_green done. $ansi_std"
     return 0
 }
 
 check() {
-  echo -n "$ansi_white Checking $DESC.."
+  printf "$ansi_white Checking $DESC.."
   if [ -f "$PIDFILE" ]; then
     echo "            $ansi_green alive. $ansi_std";
     return 0
